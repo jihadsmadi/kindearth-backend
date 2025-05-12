@@ -1,4 +1,4 @@
-﻿using Core.DTOs.Auth;
+﻿using Application.DTOs.Auth;
 using FluentValidation;
 using System;
 using System.Collections.Generic;
@@ -6,7 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Core.Validators
+namespace Application.Validators
 {
 	public class RegisterUserValidator : AbstractValidator<RegisterRequest>
 	{

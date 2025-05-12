@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Core.DTOs.Auth
+namespace Application.DTOs.Auth
 {
 	public record RefreshTokenRequest(string Token, string RefreshToken);
 

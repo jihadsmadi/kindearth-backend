@@ -1,4 +1,4 @@
-﻿namespace Core.DTOs.Auth
+﻿namespace Application.DTOs.Auth
 {
 	public record AuthResponse(string Token, string RefreshToken);
 }

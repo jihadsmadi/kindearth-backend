@@ -2,7 +2,7 @@ using Application;
 using Core.Common;
 using Core.Entities;
 using Core.Interfaces;
-using Core.Validators;
+using Application.Validators;
 using Infrastructure.Persistence;
 using Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -11,7 +11,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using FluentValidation;
-using Core.DTOs.Auth;
+using Application.DTOs.Auth;
 using System.Security.Claims;
 using Core.Enums;
 

@@ -1,15 +1,10 @@
-﻿using Core.Common;
-using Core.DTOs.Auth;
+﻿using Application.DTOs.Auth;
+using Core.Common;
 using Core.Entities;
 using Core.Interfaces;
-using Core.Validators;
 using FluentValidation;
 using Microsoft.AspNetCore.Identity;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+
 
 namespace Infrastructure.Services
 {

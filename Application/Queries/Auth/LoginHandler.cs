@@ -1,5 +1,5 @@
 ﻿using Core.Common;
-using Core.DTOs.Auth;
+using Application.DTOs.Auth;
 using Core.Interfaces;
 using MediatR;
 using Microsoft.Extensions.Options;
