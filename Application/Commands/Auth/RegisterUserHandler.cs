@@ -4,6 +4,7 @@ using Core.Entities;
 using Core.Common;
 using Core.Interfaces;
 using Core.Enums;
+using Core.Interfaces.Repositories;
 
 
 namespace Application.Commands.Auth
@@ -11,17 +12,17 @@ namespace Application.Commands.Auth
 
 	public class RegisterUserHandler : IRequestHandler<RegisterUserCommand, Result<Guid>>
 	{
-		private readonly IIdentityService _identityService;
+		private readonly IUserRepository _userRepository;
 
-		public RegisterUserHandler(IIdentityService identityService)
-			=> _identityService = identityService;
+		public RegisterUserHandler(IUserRepository userRepository)
+			=> _userRepository = userRepository;
 
 		public async Task<Result<Guid>> Handle(
 			RegisterUserCommand request,
 			CancellationToken cancellationToken
 		)
 		{
-			var result = await _identityService.RegisterUserAsync(
+			var result = await _userRepository.RegisterUserAsync(
 			request.Email,
 			request.Password,
 			request.FirstName,
@@ -30,7 +31,7 @@ namespace Application.Commands.Auth
 
 			// Assign "Customer" role
 			if (result.IsSuccess)
-				await _identityService.AssignRoleAsync(result.Value, RoleType.Customer.ToString());
+				await _userRepository.AssignRoleAsync(result.Value, RoleType.Customer.ToString());
 
 			return result;
 		}

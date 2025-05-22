@@ -1,6 +1,5 @@
 using Application;
 using Core.Common;
-using Core.Entities;
 using Core.Interfaces;
 using Application.Validators;
 using Infrastructure.Persistence;
@@ -14,6 +13,10 @@ using FluentValidation;
 using Application.DTOs.Auth;
 using System.Security.Claims;
 using Core.Enums;
+using Core.Interfaces.Repositories;
+using Infrastructure.Identity.Models;
+using Infrastructure.Identity.Repositories;
+using Infrastructure.Mapping;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -29,9 +32,13 @@ var connectionString = builder.Configuration.GetConnectionString("Default");
 builder.Services.AddDbContext<AppDbContext>(options =>
 	options.UseSqlServer(connectionString, b => b.MigrationsAssembly("Infrastructure")));
 
-builder.Services.AddIdentity<User, Role>()
+// Program.cs
+builder.Services.AddIdentity<AppUser, IdentityRole<Guid>>()
 	.AddEntityFrameworkStores<AppDbContext>()
 	.AddDefaultTokenProviders();
+
+builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddAutoMapper(typeof(UserProfile));
 
 // JWT Authentication
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
@@ -87,7 +94,6 @@ builder.Services.AddAuthorization(options =>
 builder.Services.AddMediatR(cfg =>
 	cfg.RegisterServicesFromAssembly(typeof(ApplicationAssemblyMarker).Assembly));
 builder.Services.AddScoped<IValidator<RegisterRequest>, RegisterUserValidator>(); 
-builder.Services.AddScoped<IIdentityService, IdentityService>();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddHttpContextAccessor();

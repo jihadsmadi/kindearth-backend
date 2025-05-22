@@ -8,20 +8,21 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Core.Interfaces.Repositories;
 
 namespace Application.Queries.Auth
 {
 	public class LoginHandler : IRequestHandler<LoginQuery, Result<AuthResponse>>
 	{
-		private readonly IIdentityService _identityService;
+		private readonly IUserRepository _UserRepository;
 		private readonly ITokenService _tokenService;
 		private readonly JwtSettings _jwtSettings;
 		public LoginHandler(
-			IIdentityService identityService,
+			IUserRepository UserRepository,
 			ITokenService tokenService,
 			IOptions<JwtSettings> jwtSettings)
 		{
-			_identityService = identityService;
+			_UserRepository = UserRepository;
 			_tokenService = tokenService;
 			_jwtSettings = jwtSettings.Value;
 		}
@@ -31,13 +32,13 @@ namespace Application.Queries.Auth
 			CancellationToken cancellationToken)
 		{
 			// Check credentials
-			var userIdResult = await _identityService.LoginUserAsync(request.Email, request.Password);
+			var userIdResult = await _UserRepository.LoginUserAsync(request.Email, request.Password);
 			if (!userIdResult.IsSuccess)
 				return Result<AuthResponse>.Failure(userIdResult.Error);
 
 			// Get user details
-			var user = await _identityService.GetUserByIdAsync(userIdResult.Value);
-			var roles = await _identityService.GetUserRolesAsync(user);
+			var user = await _UserRepository.GetUserByIdAsync(userIdResult.Value);
+			var roles = await _UserRepository.GetUserRolesAsync(user);
 
 			// Generate tokens
 			var token = _tokenService.GenerateJwt(user, roles);
@@ -46,7 +47,7 @@ namespace Application.Queries.Auth
 			// Save refresh token to the user
 			user.RefreshToken = refreshToken;
 			user.RefreshTokenExpiry = DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenExpiryDays);
-			await _identityService.UpdateUserAsync(user);
+			await _UserRepository.UpdateUserAsync(user);
 
 			return Result<AuthResponse>.Success(new AuthResponse(token, refreshToken));
 		}

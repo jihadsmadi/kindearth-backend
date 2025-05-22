@@ -6,10 +6,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Core.Interfaces
+namespace Core.Interfaces.Repositories
 {
-
-	public interface IIdentityService
+	public interface IUserRepository
 	{
 		Task<Result<Guid>> RegisterUserAsync(string email, string password, string firstName, string lastName);
 		Task<Result<Guid>> LoginUserAsync(string email, string password);

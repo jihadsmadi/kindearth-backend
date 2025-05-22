@@ -1,27 +1,31 @@
 ﻿using Application.DTOs.Auth;
+using AutoMapper;
 using Core.Common;
 using Core.Entities;
-using Core.Interfaces;
+using Core.Interfaces.Repositories;
 using FluentValidation;
 using Microsoft.AspNetCore.Identity;
 
 
-namespace Infrastructure.Services
+namespace Infrastructure.Identity.Repositories
 {
-	public class IdentityService : IIdentityService
+	public class UserRepository : IUserRepository
 	{
 		private readonly UserManager<User> _userManager;
 		private readonly RoleManager<Role> _roleManager;
-		private readonly IValidator<RegisterRequest> _registerValidator; 
+		private readonly IValidator<RegisterRequest> _registerValidator;
+		private readonly IMapper _mapper;
 
-		public IdentityService(
+		public UserRepository(
 			UserManager<User> userManager,
-			RoleManager<Role> roleManager,IValidator<RegisterRequest> registerValidator)
+			RoleManager<Role> roleManager, IValidator<RegisterRequest> registerValidator, IMapper mapper)
 		{
 			_userManager = userManager;
 			_roleManager = roleManager;
 			_registerValidator = registerValidator;
+			_mapper = mapper;
 		}
+
 
 		public async Task<Result<Guid>> RegisterUserAsync(string email, string password, string firstName, string lastName)
 		{
@@ -55,12 +59,12 @@ namespace Infrastructure.Services
 				? Result<Guid>.Success(user.Id)
 				: Result<Guid>.Failure(string.Join(", ", result.Errors.Select(e => e.Description)));
 		}
-		
+
 		public async Task<Result<Guid>> LoginUserAsync(string email, string password)
 		{
 			if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
 				return Result<Guid>.Failure("Email and password are required");
-			
+
 			var user = await _userManager.FindByEmailAsync(email);
 
 			if (user == null)
@@ -86,16 +90,17 @@ namespace Infrastructure.Services
 
 			if (!await _roleManager.RoleExistsAsync(role))
 				return Result<string>.Failure("Role does not exist");
-			
-			
+
+
 			// Remove all existing roles
 			var currentRoles = await _userManager.GetRolesAsync(user);
-			foreach(var r in currentRoles)
+			foreach (var r in currentRoles)
 			{
 				if (r == role)
 					return Result<string>.Failure($"User Alredy Have The Role: {role}");
 			}
 			var removeResult = await _userManager.RemoveFromRolesAsync(user, currentRoles);
+
 
 			if (!removeResult.Succeeded)
 				return Result<string>.Failure("Failed to clear existing roles");
@@ -125,6 +130,4 @@ namespace Infrastructure.Services
 				: Result<bool>.Failure(string.Join(", ", result.Errors.Select(e => e.Description)));
 		}
 	}
-
-	
 }

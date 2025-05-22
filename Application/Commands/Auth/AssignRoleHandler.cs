@@ -1,5 +1,6 @@
 ﻿using Core.Common;
 using Core.Interfaces;
+using Core.Interfaces.Repositories;
 using Infrastructure.Services;
 using MediatR;
 using System;
@@ -12,14 +13,14 @@ namespace Application.Commands.Auth
 {
 	public class AssignRoleHandler : IRequestHandler<AssignRoleCommand, Result<string>>
 	{
-		private readonly IIdentityService _identityService;
+		private readonly IUserRepository _userRepository;
 		private readonly ICurrentUserService _currentUser;
 
 		public AssignRoleHandler(
-			IIdentityService identityService,
+			IUserRepository userRepository,
 			ICurrentUserService currentUser)
 		{
-			_identityService = identityService;
+			_userRepository = _userRepository;
 			_currentUser = currentUser;
 		}
 
@@ -32,7 +33,7 @@ namespace Application.Commands.Auth
 				return Result<string>.Failure("Unauthorized: Admins only");
 
 
-			return await _identityService.AssignRoleAsync(request.UserId, request.Role);
+			return await _userRepository.AssignRoleAsync(request.UserId, request.Role);
 		}
 	}
 }
