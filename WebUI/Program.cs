@@ -17,6 +17,7 @@ using Core.Interfaces.Repositories;
 using Infrastructure.Identity.Models;
 using Infrastructure.Identity.Repositories;
 using Infrastructure.Mapping;
+using Core.Entities;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -33,7 +34,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 	options.UseSqlServer(connectionString, b => b.MigrationsAssembly("Infrastructure")));
 
 // Program.cs
-builder.Services.AddIdentity<AppUser, IdentityRole<Guid>>()
+builder.Services.AddIdentity<AppUser, Role>()
 	.AddEntityFrameworkStores<AppDbContext>()
 	.AddDefaultTokenProviders();
 

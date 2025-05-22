@@ -20,7 +20,7 @@ namespace Application.Commands.Auth
 			IUserRepository userRepository,
 			ICurrentUserService currentUser)
 		{
-			_userRepository = _userRepository;
+			_userRepository = userRepository;
 			_currentUser = currentUser;
 		}
 

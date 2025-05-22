@@ -57,11 +57,26 @@ namespace WebUI.Controllers
 			return result.IsSuccess ? Ok(result.Value) : BadRequest(result.Error);
 		}
 
-		[HttpGet("test")]
 		[Authorize(Policy = "AdminPolicy")]
-		public async Task<IActionResult> Test()
+		[HttpPost("adminTest")]
+		public async Task<IActionResult> adminTest()
 		{
-			return Ok("test admin");
+			await Task.Delay(1000);
+			return Ok("adminTest");
+		}
+		[Authorize(Policy = "VendorPolicy")]
+		[HttpPost("vendorTest")]
+		public async Task<IActionResult> vendorTest()
+		{
+			await Task.Delay(1000);
+			return Ok("vendorTest");
+		}
+		[Authorize(Policy = "CustomerPolicy")]
+		[HttpPost("customerTest")]
+		public async Task<IActionResult> customerTest()
+		{
+			await Task.Delay(1000);
+			return Ok("customerTest");
 		}
 	}
 }

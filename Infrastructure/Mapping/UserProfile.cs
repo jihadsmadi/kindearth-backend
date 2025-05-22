@@ -10,8 +10,9 @@ namespace Infrastructure.Mapping
 		public UserProfile()
 		{
 			CreateMap<AppUser, User>()
-				.ReverseMap()
-				.ForMember(dest => dest.UserName, opt => opt.MapFrom(src => src.Email));
+		   .ForMember(dest => dest.Id, opt => opt.MapFrom(src => src.Id))
+		   .ReverseMap()
+		   .ForMember(dest => dest.SecurityStamp, opt => opt.Ignore());
 		}
 	}
 }

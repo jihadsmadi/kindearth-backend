@@ -126,7 +126,14 @@ namespace Infrastructure.Identity.Repositories
 
 		public async Task<Result<bool>> UpdateUserAsync(User user)
 		{
-			var result = await _userManager.UpdateAsync(_mapper.Map<AppUser>(user));
+			var appUser = await _userManager.FindByIdAsync(user.Id.ToString());
+
+			appUser.RefreshToken = user.RefreshToken;
+			appUser.RefreshTokenExpiry = user.RefreshTokenExpiry;
+			appUser.FirstName = user.FirstName;
+			appUser.LastName = user.LastName;
+			
+			var result = await _userManager.UpdateAsync(appUser);
 			return result.Succeeded
 				? Result<bool>.Success(true)
 				: Result<bool>.Failure(string.Join(", ", result.Errors.Select(e => e.Description)));
