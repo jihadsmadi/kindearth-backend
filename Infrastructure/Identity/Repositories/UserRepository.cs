@@ -4,6 +4,7 @@ using Core.Common;
 using Core.Entities;
 using Core.Interfaces.Repositories;
 using FluentValidation;
+using Infrastructure.Identity.Models;
 using Microsoft.AspNetCore.Identity;
 
 
@@ -11,13 +12,13 @@ namespace Infrastructure.Identity.Repositories
 {
 	public class UserRepository : IUserRepository
 	{
-		private readonly UserManager<User> _userManager;
+		private readonly UserManager<AppUser> _userManager;
 		private readonly RoleManager<Role> _roleManager;
 		private readonly IValidator<RegisterRequest> _registerValidator;
 		private readonly IMapper _mapper;
 
 		public UserRepository(
-			UserManager<User> userManager,
+			UserManager<AppUser> userManager,
 			RoleManager<Role> roleManager, IValidator<RegisterRequest> registerValidator, IMapper mapper)
 		{
 			_userManager = userManager;
@@ -45,7 +46,7 @@ namespace Infrastructure.Identity.Repositories
 					string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage)));
 			}
 
-			var user = new User
+			var user = new AppUser
 			{
 				Email = email,
 				UserName = email,
@@ -114,17 +115,18 @@ namespace Infrastructure.Identity.Repositories
 
 		public async Task<User> GetUserByIdAsync(Guid userId)
 		{
-			return await _userManager.FindByIdAsync(userId.ToString());
+			var appUser =  await _userManager.FindByIdAsync(userId.ToString());
+			return _mapper.Map<User>(appUser);
 		}
 
 		public async Task<List<string>> GetUserRolesAsync(User user)
 		{
-			return (await _userManager.GetRolesAsync(user)).ToList();
+			return (await _userManager.GetRolesAsync(_mapper.Map<AppUser>(user))).ToList();
 		}
 
 		public async Task<Result<bool>> UpdateUserAsync(User user)
 		{
-			var result = await _userManager.UpdateAsync(user);
+			var result = await _userManager.UpdateAsync(_mapper.Map<AppUser>(user));
 			return result.Succeeded
 				? Result<bool>.Success(true)
 				: Result<bool>.Failure(string.Join(", ", result.Errors.Select(e => e.Description)));
