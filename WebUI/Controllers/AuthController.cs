@@ -5,6 +5,8 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Core.Common;
+using Microsoft.Extensions.Options;
 
 namespace WebUI.Controllers
 {
@@ -13,8 +15,13 @@ namespace WebUI.Controllers
 	public class AuthController : ControllerBase
 	{
 		private readonly IMediator _mediator;
+		private readonly JwtSettings _jwtSettings;
 
-		public AuthController(IMediator mediator) => _mediator = mediator;
+		public AuthController(IMediator mediator, IOptions<JwtSettings> jwtSettings)
+		{
+			_mediator = mediator;
+			_jwtSettings = jwtSettings.Value;
+		}
 
 		[HttpPost("register")]
 		[AllowAnonymous]
@@ -41,11 +48,26 @@ namespace WebUI.Controllers
 
 		[HttpPost("refreshToken")]
 		[AllowAnonymous]
-		public async Task<IActionResult> RefreshToken(RefreshTokenRequest request)
+		public async Task<IActionResult> RefreshToken()
 		{
-			var command = new RefreshTokenCommand(request.Token, request.RefreshToken);
+			var refreshToken = Request.Cookies["refresh_token"];
+			var accessToken = Request.Cookies["access_token"];
+
+			var command = new RefreshTokenCommand(accessToken, refreshToken);
 			var result = await _mediator.Send(command);
-			return result.IsSuccess ? Ok(result.Value) : Unauthorized(result.Error);
+
+			if (!result.IsSuccess) return Unauthorized();
+
+			// Set new cookies
+			Response.Cookies.Append("access_token", result.Value.newToken, new CookieOptions
+			{
+				HttpOnly = true,
+				Secure = true,
+				SameSite = SameSiteMode.Strict,
+				Expires = DateTime.UtcNow.AddMinutes(_jwtSettings.ExpiryMinutes)
+			});
+
+			return Ok("token refresh done.");
 		}
 
 		[Authorize(Policy = "AdminPolicy")]
@@ -57,6 +79,16 @@ namespace WebUI.Controllers
 			return result.IsSuccess ? Ok(result.Value) : BadRequest(result.Error);
 		}
 
+		[Authorize(Policy ="CustomerPolicy")]
+		[HttpPost("logout")]
+		public IActionResult Logout()
+		{
+			Response.Cookies.Delete("access_token");
+			Response.Cookies.Delete("refresh_token");
+			return Ok();
+		}
+
+		[ValidateAntiForgeryToken]
 		[Authorize(Policy = "AdminPolicy")]
 		[HttpPost("adminTest")]
 		public async Task<IActionResult> adminTest()
@@ -64,6 +96,8 @@ namespace WebUI.Controllers
 			await Task.Delay(1000);
 			return Ok("adminTest");
 		}
+
+		[ValidateAntiForgeryToken]
 		[Authorize(Policy = "VendorPolicy")]
 		[HttpPost("vendorTest")]
 		public async Task<IActionResult> vendorTest()
@@ -71,7 +105,8 @@ namespace WebUI.Controllers
 			await Task.Delay(1000);
 			return Ok("vendorTest");
 		}
-		[Authorize(Policy = "CustomerPolicy")]
+
+		[ValidateAntiForgeryToken]
 		[HttpPost("customerTest")]
 		public async Task<IActionResult> customerTest()
 		{

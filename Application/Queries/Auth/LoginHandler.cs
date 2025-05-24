@@ -58,11 +58,17 @@ namespace Application.Queries.Auth
 				HttpOnly = true,
 				Secure = true,
 				SameSite = SameSiteMode.Strict,
-				Expires = DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenExpiryDays)
+				Expires = DateTime.UtcNow.AddMinutes(_jwtSettings.ExpiryMinutes)
 			};
 
 			_httpContextAccessor.HttpContext?.Response.Cookies.Append("access_token", token, cookieOptions);
-			_httpContextAccessor.HttpContext?.Response.Cookies.Append("refresh_token", refreshToken, cookieOptions);
+			_httpContextAccessor.HttpContext?.Response.Cookies.Append("refresh_token", refreshToken, new CookieOptions
+			{
+				HttpOnly = true,
+				Secure = true,
+				SameSite = SameSiteMode.Strict,
+				Expires = DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenExpiryDays)
+			});
 
 			return Result<AuthResponse>.Success(new AuthResponse("Login Succussfully"));
 		}

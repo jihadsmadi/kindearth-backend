@@ -19,14 +19,17 @@ using Microsoft.IdentityModel.Tokens;
 using System.Security.Claims;
 using System.Text;
 using Application.DTOs.Auth;
+using Microsoft.AspNetCore.Antiforgery;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services
 builder.Services.AddControllers();
+builder.Services.AddControllersWithViews();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddOpenApi();
+
 
 // Database & Identity
 var connectionString = builder.Configuration.GetConnectionString("Default");
@@ -67,6 +70,15 @@ builder.Services.AddAuthentication(options =>
 		ValidateLifetime = true,
 		ClockSkew = TimeSpan.Zero
 	};
+	options.Events = new JwtBearerEvents
+	{
+		OnMessageReceived = context =>
+		{
+			context.Token = context.Request.Cookies["access_token"];
+			return Task.CompletedTask;
+		}
+	};
+
 })
 .AddCookie(CookieAuthenticationDefaults.AuthenticationScheme, options =>
 {
@@ -75,6 +87,7 @@ builder.Services.AddAuthentication(options =>
 		? CookieSecurePolicy.None
 		: CookieSecurePolicy.Always;
 	options.Cookie.SameSite = SameSiteMode.Strict;
+	options.Cookie.Name = "auth-cookie";
 	options.ExpireTimeSpan = TimeSpan.FromDays(7);// refactor
 });
 
@@ -107,6 +120,8 @@ builder.Services.AddAuthorization(options =>
 builder.Services.AddAntiforgery(options =>
 {
 	options.HeaderName = "X-CSRF-TOKEN";
+	options.Cookie.Name = "csrf-cookie";
+	options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
 	options.SuppressXFrameOptionsHeader = false;
 });
 
@@ -137,5 +152,11 @@ app.UseAuthorization();
 
 app.MapControllers();
 app.MapGet("/", () => "E-Commerce API is running!");
+
+app.MapGet("/csrf-token", (IAntiforgery antiforgery, HttpContext context) =>
+{
+	var tokens = antiforgery.GetAndStoreTokens(context);
+	return Results.Ok(new { token = tokens.RequestToken });
+});
 
 app.Run();
