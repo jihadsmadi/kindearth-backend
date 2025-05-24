@@ -9,19 +9,23 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Core.Interfaces.Repositories;
+using Microsoft.AspNetCore.Http;
 
 namespace Application.Queries.Auth
 {
 	public class LoginHandler : IRequestHandler<LoginQuery, Result<AuthResponse>>
 	{
+		private readonly IHttpContextAccessor _httpContextAccessor;
 		private readonly IUserRepository _UserRepository;
 		private readonly ITokenService _tokenService;
 		private readonly JwtSettings _jwtSettings;
 		public LoginHandler(
+			IHttpContextAccessor httpContextAccessor,
 			IUserRepository UserRepository,
 			ITokenService tokenService,
 			IOptions<JwtSettings> jwtSettings)
 		{
+			_httpContextAccessor = httpContextAccessor;
 			_UserRepository = UserRepository;
 			_tokenService = tokenService;
 			_jwtSettings = jwtSettings.Value;
@@ -49,7 +53,18 @@ namespace Application.Queries.Auth
 			user.RefreshTokenExpiry = DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenExpiryDays);
 			await _UserRepository.UpdateUserAsync(user);
 
-			return Result<AuthResponse>.Success(new AuthResponse(token, refreshToken));
+			var cookieOptions = new CookieOptions
+			{
+				HttpOnly = true,
+				Secure = true,
+				SameSite = SameSiteMode.Strict,
+				Expires = DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenExpiryDays)
+			};
+
+			_httpContextAccessor.HttpContext?.Response.Cookies.Append("access_token", token, cookieOptions);
+			_httpContextAccessor.HttpContext?.Response.Cookies.Append("refresh_token", refreshToken, cookieOptions);
+
+			return Result<AuthResponse>.Success(new AuthResponse("Login Succussfully"));
 		}
 	}
 	

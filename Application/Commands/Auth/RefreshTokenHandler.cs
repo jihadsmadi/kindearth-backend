@@ -64,7 +64,7 @@ namespace Application.Commands.Auth
 			user.RefreshTokenExpiry = DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenExpiryDays);
 			await _userRepository.UpdateUserAsync(user);
 
-			return Result<AuthResponse>.Success(new AuthResponse(newToken, newRefreshToken));
+			return Result<AuthResponse>.Success(new AuthResponse(""));
 		}
 	}
 
