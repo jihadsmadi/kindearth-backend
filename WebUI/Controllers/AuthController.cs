@@ -25,6 +25,7 @@ namespace WebUI.Controllers
 
 		[HttpPost("register")]
 		[AllowAnonymous]
+		[IgnoreAntiforgeryToken]
 		public async Task<IActionResult> Register(RegisterRequest request)
 		{
 			var command = new RegisterUserCommand(
@@ -39,6 +40,7 @@ namespace WebUI.Controllers
 
 		[HttpPost("login")]
 		[AllowAnonymous]
+		[IgnoreAntiforgeryToken]
 		public async Task<IActionResult> Login(LoginRequest request)
 		{
 			var query = new LoginQuery(request.Email, request.Password);

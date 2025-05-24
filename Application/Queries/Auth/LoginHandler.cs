@@ -3,13 +3,13 @@ using Application.DTOs.Auth;
 using Core.Interfaces;
 using MediatR;
 using Microsoft.Extensions.Options;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+
 using Core.Interfaces.Repositories;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Authentication;
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
 
 namespace Application.Queries.Auth
 {
@@ -32,8 +32,8 @@ namespace Application.Queries.Auth
 		}
 
 		public async Task<Result<AuthResponse>> Handle(
-			LoginQuery request,
-			CancellationToken cancellationToken)
+	LoginQuery request,
+	CancellationToken cancellationToken)
 		{
 			// Check credentials
 			var userIdResult = await _UserRepository.LoginUserAsync(request.Email, request.Password);
@@ -44,34 +44,38 @@ namespace Application.Queries.Auth
 			var user = await _UserRepository.GetUserByIdAsync(userIdResult.Value);
 			var roles = await _UserRepository.GetUserRolesAsync(user);
 
-			// Generate tokens
-			var token = _tokenService.GenerateJwt(user, roles);
-			var refreshToken = _tokenService.GenerateRefreshToken();
+			// Create claims identity
+			var claims = new List<Claim>
+				{
+					new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+					new Claim(ClaimTypes.Email, user.Email),
+					new Claim(ClaimTypes.GivenName, $"{user.FirstName} {user.LastName}"),
+					new Claim(ClaimTypes.Role, string.Join(",", roles))
+				};
 
-			// Save refresh token to the user
-			user.RefreshToken = refreshToken;
-			user.RefreshTokenExpiry = DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenExpiryDays);
-			await _UserRepository.UpdateUserAsync(user);
-
-			var cookieOptions = new CookieOptions
+			// Create authentication properties
+			var authProperties = new Microsoft.AspNetCore.Authentication.AuthenticationProperties
 			{
-				HttpOnly = true,
-				Secure = true,
-				SameSite = SameSiteMode.Strict,
-				Expires = DateTime.UtcNow.AddMinutes(_jwtSettings.ExpiryMinutes)
+				IsPersistent = true,
+				ExpiresUtc = DateTime.UtcNow.AddMinutes(_jwtSettings.ExpiryMinutes),
+				AllowRefresh = true
 			};
 
-			_httpContextAccessor.HttpContext?.Response.Cookies.Append("access_token", token, cookieOptions);
-			_httpContextAccessor.HttpContext?.Response.Cookies.Append("refresh_token", refreshToken, new CookieOptions
-			{
-				HttpOnly = true,
-				Secure = true,
-				SameSite = SameSiteMode.Strict,
-				Expires = DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenExpiryDays)
-			});
+			// Create claims principal
+			var claimsIdentity = new ClaimsIdentity(
+				claims,
+				CookieAuthenticationDefaults.AuthenticationScheme);
 
-			return Result<AuthResponse>.Success(new AuthResponse("Login Succussfully"));
+			var claimsPrincipal = new ClaimsPrincipal(claimsIdentity);
+
+			// Sign in using built-in authentication
+			await _httpContextAccessor.HttpContext!.SignInAsync(
+				CookieAuthenticationDefaults.AuthenticationScheme,
+				claimsPrincipal,
+				authProperties);
+
+			return Result<AuthResponse>.Success(new AuthResponse("Login Successful"));
 		}
 	}
-	
+
 }

@@ -26,6 +26,7 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services
 builder.Services.AddControllers();
 builder.Services.AddControllersWithViews();
+//builder.Services.AddRazorPages();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddOpenApi();
@@ -53,7 +54,7 @@ var key = Encoding.ASCII.GetBytes(builder.Configuration["JwtSettings:SecretKey"]
 // Cookie Authentication Configuration
 builder.Services.AddAuthentication(options =>
 {
-	options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+	options.DefaultAuthenticateScheme = CookieAuthenticationDefaults.AuthenticationScheme;
 	options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
 })
 .AddJwtBearer(options =>
@@ -83,12 +84,9 @@ builder.Services.AddAuthentication(options =>
 .AddCookie(CookieAuthenticationDefaults.AuthenticationScheme, options =>
 {
 	options.Cookie.HttpOnly = true;
-	options.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
-		? CookieSecurePolicy.None
-		: CookieSecurePolicy.Always;
+	options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
 	options.Cookie.SameSite = SameSiteMode.Strict;
-	options.Cookie.Name = "auth-cookie";
-	options.ExpireTimeSpan = TimeSpan.FromDays(7);// refactor
+	options.ExpireTimeSpan = TimeSpan.FromMinutes(15);// refactor
 });
 
 // CORS Configuration
@@ -96,12 +94,14 @@ builder.Services.AddCors(options =>
 {
 	options.AddPolicy("kindearth-frontend", policy =>
 	{
-		policy.WithOrigins(builder.Configuration["AllowedOrigins"]!.Split(';'))
+		policy.WithOrigins("http://localhost:3000") // Explicit origin
 			  .AllowAnyHeader()
 			  .AllowAnyMethod()
-			  .AllowCredentials();
+			  .AllowCredentials()
+			  .WithExposedHeaders("X-CSRF-TOKEN"); // Add this
 	});
 });
+
 
 // Authorization Policies (Keep existing)
 builder.Services.AddAuthorization(options =>
@@ -157,6 +157,6 @@ app.MapGet("/csrf-token", (IAntiforgery antiforgery, HttpContext context) =>
 {
 	var tokens = antiforgery.GetAndStoreTokens(context);
 	return Results.Ok(new { token = tokens.RequestToken });
-});
+}).AllowAnonymous();
 
 app.Run();

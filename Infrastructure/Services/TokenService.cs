@@ -61,7 +61,7 @@ namespace Infrastructure.Services
 				ValidIssuer = _jwtSettings.Issuer,
 				ValidateIssuerSigningKey = true,
 				IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtSettings.SecretKey)),
-				ValidateLifetime = true 
+				ValidateLifetime = false 
 			};
 
 			try
