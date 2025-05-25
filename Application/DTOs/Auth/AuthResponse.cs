@@ -1,4 +1,6 @@
-﻿namespace Application.DTOs.Auth
+﻿using Core.Entities;
+
+namespace Application.DTOs.Auth
 {
-	public record AuthResponse(string newToken);
+	public record AuthResponse(Guid userId, string email,string fName,string lName,IEnumerable<string> roles);
 }

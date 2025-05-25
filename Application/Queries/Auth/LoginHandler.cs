@@ -15,66 +15,53 @@ namespace Application.Queries.Auth
 {
 	public class LoginHandler : IRequestHandler<LoginQuery, Result<AuthResponse>>
 	{
-		private readonly IHttpContextAccessor _httpContextAccessor;
-		private readonly IUserRepository _UserRepository;
+		private readonly IUserRepository _userRepository;
 		private readonly ITokenService _tokenService;
+		private readonly ICookieService _cookieService;
 		private readonly JwtSettings _jwtSettings;
+
 		public LoginHandler(
-			IHttpContextAccessor httpContextAccessor,
-			IUserRepository UserRepository,
+			IUserRepository userRepository,
 			ITokenService tokenService,
+			ICookieService cookieService,
 			IOptions<JwtSettings> jwtSettings)
 		{
-			_httpContextAccessor = httpContextAccessor;
-			_UserRepository = UserRepository;
+			_userRepository = userRepository;
 			_tokenService = tokenService;
+			_cookieService = cookieService;
 			_jwtSettings = jwtSettings.Value;
 		}
 
 		public async Task<Result<AuthResponse>> Handle(
-	LoginQuery request,
-	CancellationToken cancellationToken)
+		LoginQuery request,
+		CancellationToken cancellationToken)
 		{
 			// Check credentials
-			var userIdResult = await _UserRepository.LoginUserAsync(request.Email, request.Password);
+			var userIdResult = await _userRepository.LoginUserAsync(request.Email, request.Password);
 			if (!userIdResult.IsSuccess)
 				return Result<AuthResponse>.Failure(userIdResult.Error);
 
 			// Get user details
-			var user = await _UserRepository.GetUserByIdAsync(userIdResult.Value);
-			var roles = await _UserRepository.GetUserRolesAsync(user);
+			var user = await _userRepository.GetUserByIdAsync(userIdResult.Value);
+			var roles = await _userRepository.GetUserRolesAsync(user);
 
-			// Create claims identity
-			var claims = new List<Claim>
-				{
-					new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-					new Claim(ClaimTypes.Email, user.Email),
-					new Claim(ClaimTypes.GivenName, $"{user.FirstName} {user.LastName}"),
-					new Claim(ClaimTypes.Role, string.Join(",", roles))
-				};
+			var accessToken = _tokenService.GenerateJwtToken(user, roles);
+			var refreshToken = _tokenService.GenerateRefreshToken();
 
-			// Create authentication properties
-			var authProperties = new Microsoft.AspNetCore.Authentication.AuthenticationProperties
-			{
-				IsPersistent = true,
-				ExpiresUtc = DateTime.UtcNow.AddMinutes(_jwtSettings.ExpiryMinutes),
-				AllowRefresh = true
-			};
+			user.RefreshToken = refreshToken;
+			user.RefreshTokenExpiry = DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenExpiryDays);
+			await _userRepository.UpdateUserAsync(user);
 
-			// Create claims principal
-			var claimsIdentity = new ClaimsIdentity(
-				claims,
-				CookieAuthenticationDefaults.AuthenticationScheme);
+			// Set cookies through abstraction
+			_cookieService.SetJwtCookies(accessToken, refreshToken);
 
-			var claimsPrincipal = new ClaimsPrincipal(claimsIdentity);
+			return Result<AuthResponse>.Success(new AuthResponse(
+				user.Id,
+				user.Email,
+				user.FirstName,
+				user.LastName,
+				roles));
 
-			// Sign in using built-in authentication
-			await _httpContextAccessor.HttpContext!.SignInAsync(
-				CookieAuthenticationDefaults.AuthenticationScheme,
-				claimsPrincipal,
-				authProperties);
-
-			return Result<AuthResponse>.Success(new AuthResponse("Login Successful"));
 		}
 	}
 

@@ -1,76 +1,65 @@
-using Application.Validators;
 using Application;
+using Application.DTOs.Auth;
+using Application.Validators;
 using Core.Common;
 using Core.Entities;
 using Core.Enums;
-using Core.Interfaces.Repositories;
 using Core.Interfaces;
+using Core.Interfaces.Repositories;
 using FluentValidation;
 using Infrastructure.Identity.Models;
 using Infrastructure.Identity.Repositories;
 using Infrastructure.Mapping;
 using Infrastructure.Persistence;
 using Infrastructure.Services;
-using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Security.Claims;
 using System.Text;
-using Application.DTOs.Auth;
-using Microsoft.AspNetCore.Antiforgery;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services
+// Add core services
 builder.Services.AddControllers();
 builder.Services.AddControllersWithViews();
-//builder.Services.AddRazorPages();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-builder.Services.AddOpenApi();
-
 
 // Database & Identity
 var connectionString = builder.Configuration.GetConnectionString("Default");
 builder.Services.AddDbContext<AppDbContext>(options =>
 	options.UseSqlServer(connectionString, b => b.MigrationsAssembly("Infrastructure")));
 
-// Identity Configuration
 builder.Services.AddIdentity<AppUser, Role>()
-	.AddEntityFrameworkStores<AppDbContext>()
-	.AddDefaultTokenProviders();
-
-// Repository and AutoMapper
-builder.Services.AddScoped<IUserRepository, UserRepository>();
-builder.Services.AddAutoMapper(typeof(UserProfile));
+	.AddEntityFrameworkStores<AppDbContext>();
 
 // JWT Configuration
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
 builder.Services.Configure<JwtSettings>(jwtSettings);
-var key = Encoding.ASCII.GetBytes(builder.Configuration["JwtSettings:SecretKey"]!);
+var key = Encoding.ASCII.GetBytes(jwtSettings["SecretKey"]!);
 
-// Cookie Authentication Configuration
 builder.Services.AddAuthentication(options =>
 {
-	options.DefaultAuthenticateScheme = CookieAuthenticationDefaults.AuthenticationScheme;
+	options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
 	options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
 })
 .AddJwtBearer(options =>
 {
 	options.TokenValidationParameters = new TokenValidationParameters
 	{
-		RoleClaimType = ClaimTypes.Role,
-		ValidateIssuerSigningKey = true,
-		IssuerSigningKey = new SymmetricSecurityKey(key),
 		ValidateIssuer = true,
-		ValidIssuer = builder.Configuration["JwtSettings:Issuer"],
 		ValidateAudience = true,
-		ValidAudience = builder.Configuration["JwtSettings:Audience"],
 		ValidateLifetime = true,
-		ClockSkew = TimeSpan.Zero
+		ValidateIssuerSigningKey = true,
+		ValidIssuer = jwtSettings["Issuer"],
+		ValidAudience = jwtSettings["Audience"],
+		IssuerSigningKey = new SymmetricSecurityKey(key),
+		RoleClaimType = ClaimTypes.Role
 	};
+
 	options.Events = new JwtBearerEvents
 	{
 		OnMessageReceived = context =>
@@ -79,31 +68,8 @@ builder.Services.AddAuthentication(options =>
 			return Task.CompletedTask;
 		}
 	};
-
-})
-.AddCookie(CookieAuthenticationDefaults.AuthenticationScheme, options =>
-{
-	options.Cookie.HttpOnly = true;
-	options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-	options.Cookie.SameSite = SameSiteMode.Strict;
-	options.ExpireTimeSpan = TimeSpan.FromMinutes(15);// refactor
 });
 
-// CORS Configuration
-builder.Services.AddCors(options =>
-{
-	options.AddPolicy("kindearth-frontend", policy =>
-	{
-		policy.WithOrigins("http://localhost:3000") // Explicit origin
-			  .AllowAnyHeader()
-			  .AllowAnyMethod()
-			  .AllowCredentials()
-			  .WithExposedHeaders("X-CSRF-TOKEN"); // Add this
-	});
-});
-
-
-// Authorization Policies (Keep existing)
 builder.Services.AddAuthorization(options =>
 {
 	options.AddPolicy("AdminPolicy", policy =>
@@ -116,22 +82,39 @@ builder.Services.AddAuthorization(options =>
 		policy.RequireRole(RoleType.Admin.ToString(), RoleType.Vendor.ToString(), RoleType.Customer.ToString()));
 });
 
-// CSRF Protection
+// CORS Configuration
+builder.Services.AddCors(options =>
+{
+	options.AddPolicy("FrontendPolicy", policy =>
+	{
+		policy.WithOrigins("http://localhost:3000")
+			  .AllowAnyHeader()
+			  .AllowAnyMethod()
+			  .AllowCredentials();
+	});
+});
+
+// Mapper Configuration
+builder.Services.AddAutoMapper(typeof(UserProfile));
+// Application Services
+builder.Services.AddMediatR(cfg =>
+	cfg.RegisterServicesFromAssembly(typeof(ApplicationAssemblyMarker).Assembly));
+// Store jwtSetting Configuration
+builder.Services.Configure<JwtSettings>(jwtSettings);
+
+builder.Services.AddScoped<IValidator<RegisterRequest>, RegisterUserValidator>();
+builder.Services.AddScoped<ITokenService, TokenService>();
+builder.Services.AddScoped<ICookieService, CookieService>();
+builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
+builder.Services.AddHttpContextAccessor();
+
 builder.Services.AddAntiforgery(options =>
 {
 	options.HeaderName = "X-CSRF-TOKEN";
 	options.Cookie.Name = "csrf-cookie";
 	options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-	options.SuppressXFrameOptionsHeader = false;
 });
-
-// Other Services (Keep existing)
-builder.Services.AddMediatR(cfg =>
-	cfg.RegisterServicesFromAssembly(typeof(ApplicationAssemblyMarker).Assembly));
-builder.Services.AddScoped<IValidator<RegisterRequest>, RegisterUserValidator>();
-builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
-builder.Services.AddScoped<ITokenService, TokenService>();
-builder.Services.AddHttpContextAccessor();
 
 var app = builder.Build();
 
@@ -144,19 +127,18 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseRouting();
-
-// Security Middleware
-app.UseCors("kindearth-frontend");
+app.UseCors("FrontendPolicy");
 app.UseAuthentication();
 app.UseAuthorization();
 
-app.MapControllers();
-app.MapGet("/", () => "E-Commerce API is running!");
 
+// Add CSRF endpoint
 app.MapGet("/csrf-token", (IAntiforgery antiforgery, HttpContext context) =>
 {
 	var tokens = antiforgery.GetAndStoreTokens(context);
 	return Results.Ok(new { token = tokens.RequestToken });
 }).AllowAnonymous();
+
+app.MapControllers();
 
 app.Run();

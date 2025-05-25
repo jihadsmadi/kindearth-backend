@@ -1,6 +1,7 @@
 ﻿using Core.Common;
 using Core.Entities;
 using Core.Interfaces;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
@@ -16,14 +17,12 @@ namespace Infrastructure.Services
 	{
 		private readonly JwtSettings _jwtSettings;
 
-		
 		public TokenService(IOptions<JwtSettings> jwtSettings)
 		{
 			_jwtSettings = jwtSettings.Value;
-			Console.WriteLine(jwtSettings.Value);
 		}
 
-		public string GenerateJwt(User user, IList<string> roles)
+		public string GenerateJwtToken(User user, IList<string> roles)
 		{
 			var claims = new List<Claim>
 		{

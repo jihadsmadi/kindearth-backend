@@ -56,7 +56,7 @@ namespace Application.Commands.Auth
 
 			// Generate new tokens
 			var roles = await _userRepository.GetUserRolesAsync(user);
-			var newToken = _tokenService.GenerateJwt(user, roles);
+			var newToken = _tokenService.GenerateJwtToken(user, roles);
 			var newRefreshToken = _tokenService.GenerateRefreshToken();
 
 			// Update user
@@ -64,7 +64,7 @@ namespace Application.Commands.Auth
 			user.RefreshTokenExpiry = DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenExpiryDays);
 			await _userRepository.UpdateUserAsync(user);
 
-			return Result<AuthResponse>.Success(new AuthResponse(""));
+			return Result<AuthResponse>.Failure("reimplimetn the refresh token handler");
 		}
 	}
 

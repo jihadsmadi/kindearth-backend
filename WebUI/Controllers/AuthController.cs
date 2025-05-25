@@ -61,13 +61,13 @@ namespace WebUI.Controllers
 			if (!result.IsSuccess) return Unauthorized();
 
 			// Set new cookies
-			Response.Cookies.Append("access_token", result.Value.newToken, new CookieOptions
-			{
-				HttpOnly = true,
-				Secure = true,
-				SameSite = SameSiteMode.Strict,
-				Expires = DateTime.UtcNow.AddMinutes(_jwtSettings.ExpiryMinutes)
-			});
+			//Response.Cookies.Append("access_token", result.Value.newToken, new CookieOptions
+			//{
+			//	HttpOnly = true,
+			//	Secure = true,
+			//	SameSite = SameSiteMode.Strict,
+			//	Expires = DateTime.UtcNow.AddMinutes(_jwtSettings.ExpiryMinutes)
+			//});
 
 			return Ok("token refresh done.");
 		}
@@ -99,7 +99,6 @@ namespace WebUI.Controllers
 			return Ok("adminTest");
 		}
 
-		[ValidateAntiForgeryToken]
 		[Authorize(Policy = "VendorPolicy")]
 		[HttpPost("vendorTest")]
 		public async Task<IActionResult> vendorTest()
