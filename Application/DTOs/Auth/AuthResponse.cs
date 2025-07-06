@@ -2,5 +2,5 @@
 
 namespace Application.DTOs.Auth
 {
-	public record AuthResponse(Guid userId, string email,string fName,string lName,IEnumerable<string> roles);
+	public record AuthResponse(Guid id, string email, string firstName, string lastName, IEnumerable<string> roles);
 }

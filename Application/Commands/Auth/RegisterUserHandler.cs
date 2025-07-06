@@ -6,10 +6,8 @@ using Core.Interfaces;
 using Core.Enums;
 using Core.Interfaces.Repositories;
 
-
 namespace Application.Commands.Auth
 {
-
 	public class RegisterUserHandler : IRequestHandler<RegisterUserCommand, Result<Guid>>
 	{
 		private readonly IUserRepository _userRepository;
@@ -23,15 +21,31 @@ namespace Application.Commands.Auth
 		)
 		{
 			var result = await _userRepository.RegisterUserAsync(
-			request.Email,
-			request.Password,
-			request.FirstName,
-			request.LastName
-		);
+				request.Email,
+				request.Password,
+				request.FirstName,
+				request.LastName,
+				request.Phone
+			);
 
-			// Assign "Customer" role
-			if (result.IsSuccess)
-				await _userRepository.AssignRoleAsync(result.Value, RoleType.Customer.ToString());
+			if (!result.IsSuccess)
+				return result;
+
+			// Use the role from the request, default to Customer if not specified
+			var roleToAssign = !string.IsNullOrWhiteSpace(request.Role) 
+				? request.Role 
+				: "Customer";
+
+			// Assign role
+			var roleResult = await _userRepository.AssignRoleAsync(result.Value, roleToAssign);
+			if (!roleResult.IsSuccess)
+				return Result<Guid>.Success(result.Value);
+
+			// Create VendorProfile if user is a vendor
+			if (roleToAssign == "Vendor" && !string.IsNullOrEmpty(request.StoreName))
+			{
+				await _userRepository.CreateVendorProfileAsync(result.Value, request.StoreName);
+			}
 
 			return result;
 		}

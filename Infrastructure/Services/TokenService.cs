@@ -1,7 +1,8 @@
 ﻿using Core.Common;
-using Core.Entities;
 using Core.Interfaces;
+using Infrastructure.Identity.Models;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
@@ -10,25 +11,28 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 
-
 namespace Infrastructure.Services
 {
 	public class TokenService : ITokenService
 	{
 		private readonly JwtSettings _jwtSettings;
+		private readonly UserManager<AppUser> _userManager;
 
-		public TokenService(IOptions<JwtSettings> jwtSettings)
+		public TokenService(IOptions<JwtSettings> jwtSettings, UserManager<AppUser> userManager)
 		{
 			_jwtSettings = jwtSettings.Value;
+			this._userManager = userManager;
 		}
 
-		public string GenerateJwtToken(User user, IList<string> roles)
+		public string GenerateJwtToken(UserDto user, IList<string> roles)
 		{
 			var claims = new List<Claim>
-		{
-			new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
-			new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
-		};
+			{
+				new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+				new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+				new Claim(ClaimTypes.Email, user.Email ?? string.Empty),
+				new Claim(ClaimTypes.GivenName, $"{user.FirstName} {user.LastName}")
+			};
 
 			// Add roles to the token
 			foreach (var role in roles)
@@ -48,8 +52,13 @@ namespace Infrastructure.Services
 			return new JwtSecurityTokenHandler().WriteToken(token);
 		}
 
-		public string GenerateRefreshToken()
-			=> Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
+		public (string RawToken, string HashedToken) GenerateRefreshTokenPair()
+		{
+			var rawToken = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
+			var hashedToken = _userManager.PasswordHasher.HashPassword(null, rawToken);
+			return (rawToken, hashedToken);
+		}
+
 		public ClaimsPrincipal? GetPrincipalFromExpiredToken(string token)
 		{
 			var tokenValidationParameters = new TokenValidationParameters
@@ -80,6 +89,5 @@ namespace Infrastructure.Services
 				return null;
 			}
 		}
-
 	}
 }

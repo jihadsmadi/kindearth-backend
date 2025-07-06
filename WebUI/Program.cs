@@ -1,4 +1,6 @@
 using Application;
+using Application.Commands.Categories;
+using Application.Commands.Tags;
 using Application.DTOs.Auth;
 using Application.Validators;
 using Core.Common;
@@ -9,7 +11,6 @@ using Core.Interfaces.Repositories;
 using FluentValidation;
 using Infrastructure.Identity.Models;
 using Infrastructure.Identity.Repositories;
-using Infrastructure.Mapping;
 using Infrastructure.Persistence;
 using Infrastructure.Services;
 using Microsoft.AspNetCore.Antiforgery;
@@ -87,36 +88,87 @@ builder.Services.AddCors(options =>
 {
 	options.AddPolicy("FrontendPolicy", policy =>
 	{
-		policy.WithOrigins("http://localhost:3000")
-			  .AllowAnyHeader()
+				policy.WithOrigins(
+			   "http://localhost:3000",  // HTTP frontend
+			   "https://localhost:3000")   // HTTPS frontend 
+			 .AllowAnyHeader()
 			  .AllowAnyMethod()
-			  .AllowCredentials();
+			  .AllowCredentials()
+			  .SetIsOriginAllowed(_ => true);
 	});
 });
 
-// Mapper Configuration
-builder.Services.AddAutoMapper(typeof(UserProfile));
 // Application Services
 builder.Services.AddMediatR(cfg =>
 	cfg.RegisterServicesFromAssembly(typeof(ApplicationAssemblyMarker).Assembly));
 // Store jwtSetting Configuration
 builder.Services.Configure<JwtSettings>(jwtSettings);
 
+// Validators
 builder.Services.AddScoped<IValidator<RegisterRequest>, RegisterUserValidator>();
+builder.Services.AddScoped<IValidator<CreateCategoryCommand>, CreateCategoryCommandValidator>();
+builder.Services.AddScoped<IValidator<UpdateCategoryCommand>, UpdateCategoryCommandValidator>();
+builder.Services.AddScoped<IValidator<CreateTagCommand>, CreateTagCommandValidator>();
+builder.Services.AddScoped<IValidator<UpdateTagCommand>, UpdateTagCommandValidator>();
+
+// Repositories
+builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IProductRepository, Infrastructure.Repositories.ProductRepository>();
+builder.Services.AddScoped<ICategoryRepository, Infrastructure.Repositories.CategoryRepository>();
+builder.Services.AddScoped<ITagRepository, Infrastructure.Repositories.TagRepository>();
+builder.Services.AddScoped<IVendorProfileRepository, Infrastructure.Repositories.VendorProfileRepository>();
+builder.Services.AddScoped<IProductImageRepository, Infrastructure.Repositories.ProductImageRepository>();
+builder.Services.AddScoped<IProductTagRepository, Infrastructure.Repositories.ProductTagRepository>();
+builder.Services.AddScoped(typeof(IRepository<>), typeof(Infrastructure.Repositories.GenericRepository<>));
+builder.Services.AddScoped<IProductStockRepository, Infrastructure.Repositories.ProductStockRepository>();
+builder.Services.AddScoped<ICategorySizeRepository, Infrastructure.Repositories.CategorySizeRepository>();
+
+// Unit of Work
+builder.Services.AddScoped<IUnitOfWork, Infrastructure.Persistence.UnitOfWork>();
+
+// Services
 builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<ICookieService, CookieService>();
-builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
+builder.Services.AddScoped<Application.Services.IProductMappingService, Application.Services.ProductMappingService>();
 builder.Services.AddHttpContextAccessor();
+
+// Seeders
+builder.Services.AddScoped<CategorySeeder>();
+builder.Services.AddScoped<TagSeeder>();
+builder.Services.AddScoped<ProductSeeder>();
+builder.Services.AddScoped<DataSeeder>();
 
 builder.Services.AddAntiforgery(options =>
 {
 	options.HeaderName = "X-CSRF-TOKEN";
 	options.Cookie.Name = "csrf-cookie";
-	options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+	options.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
+		? CookieSecurePolicy.None
+		: CookieSecurePolicy.Always; ;
+	options.SuppressXFrameOptionsHeader = false;
+	options.Cookie.SameSite = builder.Environment.IsDevelopment()
+			? SameSiteMode.Lax  // For development
+			: SameSiteMode.Strict;
+	options.Cookie.HttpOnly = false;
 });
 
 var app = builder.Build();
+
+// Seed database
+using (var scope = app.Services.CreateScope())
+{
+	try
+	{
+		var dataSeeder = scope.ServiceProvider.GetRequiredService<DataSeeder>();
+		await dataSeeder.SeedAllAsync();
+	}
+	catch (Exception ex)
+	{
+		var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+		logger.LogError(ex, "An error occurred while seeding the database.");
+	}
+}
 
 // Middleware Pipeline
 if (app.Environment.IsDevelopment())
@@ -125,7 +177,10 @@ if (app.Environment.IsDevelopment())
 	app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+if (!app.Environment.IsDevelopment())
+{
+	app.UseHttpsRedirection(); 
+}
 app.UseRouting();
 app.UseCors("FrontendPolicy");
 app.UseAuthentication();
@@ -140,5 +195,6 @@ app.MapGet("/csrf-token", (IAntiforgery antiforgery, HttpContext context) =>
 }).AllowAnonymous();
 
 app.MapControllers();
+
 
 app.Run();

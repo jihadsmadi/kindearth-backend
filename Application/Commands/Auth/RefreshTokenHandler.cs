@@ -2,27 +2,27 @@
 using Application.DTOs.Auth;
 using Core.Interfaces;
 using MediatR;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
 using System.Security.Claims;
-using Core.Entities;
 using Core.Interfaces.Repositories;
 
 namespace Application.Commands.Auth
 {
-	
 	public class RefreshTokenHandler : IRequestHandler<RefreshTokenCommand, Result<AuthResponse>>
 	{
+		private readonly ICookieService _cookieService;
 		private readonly ITokenService _tokenService;
 		private readonly IUserRepository _userRepository;
 		private readonly JwtSettings _jwtSettings;
 
 		public RefreshTokenHandler(
+			ICookieService cookieService,
 			ITokenService tokenService,
 			IUserRepository userRepository,
 			IOptions<JwtSettings> jwtSettings
 			)
 		{
+			_cookieService = cookieService;
 			_tokenService = tokenService;
 			_userRepository = userRepository;
 			_jwtSettings = jwtSettings.Value;
@@ -48,24 +48,27 @@ namespace Application.Commands.Auth
 				return Result<AuthResponse>.Failure("User not found");
 
 			// Validate refresh token
-			if (user.RefreshToken != request.RefreshToken)
+			if (!_userRepository.VerifyRefreshToken(user, request.RefreshToken))
 				return Result<AuthResponse>.Failure("Invalid refresh token");
 
 			if (user.RefreshTokenExpiry < DateTime.UtcNow)
+			{
+				_cookieService.RemoveJwtCookies();
 				return Result<AuthResponse>.Failure("Refresh token expired");
+			}
 
 			// Generate new tokens
 			var roles = await _userRepository.GetUserRolesAsync(user);
 			var newToken = _tokenService.GenerateJwtToken(user, roles);
-			var newRefreshToken = _tokenService.GenerateRefreshToken();
+			var (rawRefreshToken, hashedRefreshToken) = _tokenService.GenerateRefreshTokenPair();
 
-			// Update user
-			user.RefreshToken = newRefreshToken;
-			user.RefreshTokenExpiry = DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenExpiryDays);
+			user.RefreshToken = hashedRefreshToken;
 			await _userRepository.UpdateUserAsync(user);
 
-			return Result<AuthResponse>.Failure("reimplimetn the refresh token handler");
+			_cookieService.SetJwtCookies(newToken, rawRefreshToken);
+
+			return Result<AuthResponse>.Success(new AuthResponse(
+				user.Id, user.Email, user.FirstName, user.LastName, roles));
 		}
 	}
-
 }

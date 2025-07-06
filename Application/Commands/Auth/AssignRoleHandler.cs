@@ -32,8 +32,8 @@ namespace Application.Commands.Auth
 			if (!_currentUser.IsAdmin)
 				return Result<string>.Failure("Unauthorized: Admins only");
 
-
-			return await _userRepository.AssignRoleAsync(request.UserId, request.Role);
+			// Use ReplaceUserRoleAsync to replace existing roles
+			return await _userRepository.ReplaceUserRoleAsync(request.UserId, request.Role);
 		}
 	}
 }

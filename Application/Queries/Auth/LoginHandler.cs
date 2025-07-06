@@ -3,13 +3,7 @@ using Application.DTOs.Auth;
 using Core.Interfaces;
 using MediatR;
 using Microsoft.Extensions.Options;
-
 using Core.Interfaces.Repositories;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Http.Authentication;
-using System.Security.Claims;
-using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Authentication.Cookies;
 
 namespace Application.Queries.Auth
 {
@@ -46,13 +40,12 @@ namespace Application.Queries.Auth
 			var roles = await _userRepository.GetUserRolesAsync(user);
 
 			var accessToken = _tokenService.GenerateJwtToken(user, roles);
-			var refreshToken = _tokenService.GenerateRefreshToken();
+			var (refreshToken, hashedRefreshToken) = _tokenService.GenerateRefreshTokenPair();
 
-			user.RefreshToken = refreshToken;
+			user.RefreshToken = hashedRefreshToken;
 			user.RefreshTokenExpiry = DateTime.UtcNow.AddDays(_jwtSettings.RefreshTokenExpiryDays);
 			await _userRepository.UpdateUserAsync(user);
 
-			// Set cookies through abstraction
 			_cookieService.SetJwtCookies(accessToken, refreshToken);
 
 			return Result<AuthResponse>.Success(new AuthResponse(
@@ -61,8 +54,6 @@ namespace Application.Queries.Auth
 				user.FirstName,
 				user.LastName,
 				roles));
-
 		}
-	}
-
+	}	
 }

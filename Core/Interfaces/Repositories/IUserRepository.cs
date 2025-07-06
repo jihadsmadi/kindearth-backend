@@ -1,5 +1,4 @@
 ﻿using Core.Common;
-using Core.Entities;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -10,11 +9,14 @@ namespace Core.Interfaces.Repositories
 {
 	public interface IUserRepository
 	{
-		Task<Result<Guid>> RegisterUserAsync(string email, string password, string firstName, string lastName);
+		Task<Result<Guid>> RegisterUserAsync(string email, string password, string firstName, string lastName, string phone);
 		Task<Result<Guid>> LoginUserAsync(string email, string password);
 		Task<Result<string>> AssignRoleAsync(Guid userId, string role);
-		Task<User> GetUserByIdAsync(Guid userId);
-		Task<List<string>> GetUserRolesAsync(User user);
-		Task<Result<bool>> UpdateUserAsync(User user);
+		Task<Result<string>> ReplaceUserRoleAsync(Guid userId, string newRole);
+		Task<UserDto> GetUserByIdAsync(Guid userId);
+		Task<List<string>> GetUserRolesAsync(UserDto user);
+		Task<Result<bool>> UpdateUserAsync(UserDto user);
+		bool VerifyRefreshToken(UserDto user, string rawToken);
+		Task<Result<bool>> CreateVendorProfileAsync(Guid userId, string storeName);
 	}
 }
